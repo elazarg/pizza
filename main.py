@@ -17,18 +17,17 @@ def read_file(filename):
     return R, C, L, H, rows
 
 
-R, C, L, H, rows = read_file('medium.in')
-
-
-def ind(r, c):
-    return r*C + c
+R, C, L, H, rows = read_file('small.in')
 
 total_mushrooms = np.cumsum(np.cumsum(rows, axis=0), axis=1)
 TOTAL_SLICES_SIZE = Int('TOTAL_SLICES_SIZE')
-TOTAL = Array('TOTAL', z3.IntSort(), z3.IntSort())
-INIT = And(*[TOTAL[ind(r, c)] == int(total_mushrooms[r, c])
-             for r in range(R)
-             for c in range(C)])
+TOTAL = Array('TOTAL', z3.IntSort(), z3.ArraySort(z3.IntSort(), IntSort()))
+INIT = [TOTAL[r][c] == int(total_mushrooms[r, c])
+        for r in range(R)
+        for c in range(C)]
+INIT += [TOTAL[r][-1] == 0 for r in range(R)]
+INIT += [TOTAL[-1][c] == 0 for c in range(C)]
+
 
 Point = namedtuple('Point', ('c', 'r', ))
 SL = namedtuple('SL', ('src', 'dst', 'i', ))
@@ -38,14 +37,10 @@ def slice_size(s):
     return (s.dst.r - s.src.r + 1) * (s.dst.c - s.src.c + 1)
 
 
-def zc(r, c):
-    return If(Or(r < 0, c < 0), 0, TOTAL[ind(r, c)])
-
-
 def count_mushrooms(s):
     sr, sc = s.src.r, s.src.c
     dr, dc = s.dst.r, s.dst.c
-    return zc(dr, dc) - zc(dr, sc - 1) - zc(sr - 1, dc) + zc(sr - 1, sc - 1)
+    return TOTAL[dr][dc] - TOTAL[dr][sc-1] - TOTAL[sr-1][dc] + TOTAL[sr-1][sc-1]
 
 
 def VAR_SLICE_SIZE(i):
@@ -69,8 +64,7 @@ def slice_constraints(s):
 
 def cons_nonoverlap(s1, s2):
     # The slices being cut out cannot overlap
-    return Or(s1.dst.r < s2.src.r, s1.dst.r < s2.src.r,
-              s1.dst.c < s2.src.c, s1.dst.c < s2.src.c)
+    return Or(s1.dst.r < s2.src.r, s1.dst.c < s2.src.c)
 
 
 def create_slices(num):
@@ -81,19 +75,18 @@ def create_slices(num):
                  i=i)
               for i in range(num)]
     constraints = [slice_constraints(s) for s in slices]
-    constraints += [cons_nonoverlap(s1, s2) for s1 in slices for s2 in slices if id(s1) != id(s2)]
+    constraints += [cons_nonoverlap(s1, s2) for s1 in slices for s2 in slices if id(s1) < id(s2)]
     constraints += [TOTAL_SLICES_SIZE == Sum([VAR_SLICE_SIZE(i) for i in range(num)])]
+    constraints += [TOTAL_SLICES_SIZE <= int((R * C)/num)]
     return slices, constraints
 
 
-SLICES = 3
-
-
-def optimize(constraints):
+def optimize(constraints, maximize=True):
     s = Optimize()
     s.add(INIT)
-    s.add(*constraints)
-    s.maximize(TOTAL_SLICES_SIZE)
+    s.add(constraints)
+    if maximize:
+        s.maximize(TOTAL_SLICES_SIZE)
     print(s.check())
     return s.model()
 
@@ -101,6 +94,8 @@ def optimize(constraints):
 def main():
     print(R, C, L, H)
     print(np.array(rows))
+
+    SLICES = 3
 
     slices, constraints = create_slices(SLICES)
     m = optimize(constraints)
