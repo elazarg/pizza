@@ -24,6 +24,7 @@ def ind(r, c):
     return r*C + c
 
 total_mushrooms = np.cumsum(np.cumsum(rows, axis=0), axis=1)
+TOTAL_SLICES_SIZE = Int('TOTAL_SLICES_SIZE')
 TOTAL = Array('TOTAL', z3.IntSort(), z3.IntSort())
 INIT = And(*[TOTAL[ind(r, c)] == int(total_mushrooms[r, c])
              for r in range(R)
@@ -47,8 +48,12 @@ def count_mushrooms(s):
     return zc(dr, dc) - zc(dr, sc - 1) - zc(sr - 1, dc) + zc(sr - 1, sc - 1)
 
 
+def VAR_SLICE_SIZE(i):
+    return Int('Slice{}.SIZE'.format(i))
+
+
 def slice_constraints(s):
-    SLICE_SIZE = Int('Slice{}.SIZE'.format(s.i))
+    SLICE_SIZE = VAR_SLICE_SIZE(s.i)
     MUSH_COUNT = Int('Slice{}.MUSH_COUNT'.format(s.i))
     return And(  # slices are in bounds
                 s.src.r >= 0, s.src.c >= 0, s.dst.r < R, s.dst.c < C,
@@ -77,26 +82,33 @@ def create_slices(num):
               for i in range(num)]
     constraints = [slice_constraints(s) for s in slices]
     constraints += [cons_nonoverlap(s1, s2) for s1 in slices for s2 in slices if id(s1) != id(s2)]
+    constraints += [TOTAL_SLICES_SIZE == Sum([VAR_SLICE_SIZE(i) for i in range(num)])]
     return slices, constraints
 
 
-SLICES = 2
+def cons_totalsize(slices):
+    # The slices being cut out cannot overlap
+    return Sum([])
+
+SLICES = 3
 
 
-def find_model(constraints):
-    s = Solver()
+def optimize(constraints):
+    s = Optimize()
     s.add(INIT)
     s.add(*constraints)
+    s.maximize(TOTAL_SLICES_SIZE)
     print(s.check())
     return s.model()
 
 
 def main():
-    slices, constraints = create_slices(SLICES)
-    m = find_model(constraints)
-
     print(R, C, L, H)
     print(np.array(rows))
+
+    slices, constraints = create_slices(SLICES)
+    m = optimize(constraints)
+
     # print(total_mushrooms)
     for i in range(SLICES):
         print("Slice: ({}, {}) x ({}, {}) => MUSH_COUNT = {}, SIZE = {}".format(
@@ -105,6 +117,8 @@ def main():
             m.evaluate(slices[i].dst.c),
             m.evaluate(slices[i].dst.r),
             m.evaluate(Int("Slice{}.MUSH_COUNT".format(i))),
-            m.evaluate(Int("Slice{}.SIZE".format(i)))))
+            m.evaluate(VAR_SLICE_SIZE(i)))
+        )
+    print('TOTAL =', m.evaluate(TOTAL_SLICES_SIZE))
 
 main()
