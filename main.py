@@ -17,7 +17,7 @@ def read_file(filename):
     return R, C, L, H, rows
 
 
-R, C, L, H, rows = read_file('small.in')
+R, C, L, H, rows = read_file('medium.in')
 
 
 def ind(r, c):
@@ -85,10 +85,6 @@ def create_slices(num):
     constraints += [TOTAL_SLICES_SIZE == Sum([VAR_SLICE_SIZE(i) for i in range(num)])]
     return slices, constraints
 
-
-def cons_totalsize(slices):
-    # The slices being cut out cannot overlap
-    return Sum([])
 
 SLICES = 3
 
