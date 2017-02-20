@@ -18,8 +18,6 @@ def read_file(filename):
 
 
 R, C, L, H, rows = read_file('small.in')
-print(R, C, L, H)
-print(np.array(rows))
 
 
 def ind(r, c):
@@ -28,13 +26,8 @@ def ind(r, c):
 total_mushrooms = np.cumsum(np.cumsum(rows, axis=0), axis=1)
 TOTAL = Array('TOTAL', z3.IntSort(), z3.IntSort())
 INIT = And(*[TOTAL[ind(r, c)] == int(total_mushrooms[r, c])
-            for r in range(R)
-            for c in range(C)])
-
-
-print(total_mushrooms)
-# exit()
-
+             for r in range(R)
+             for c in range(C)])
 
 Point = namedtuple('Point', ('c', 'r', ))
 SL = namedtuple('SL', ('src', 'dst', 'i', ))
@@ -43,28 +36,30 @@ SL = namedtuple('SL', ('src', 'dst', 'i', ))
 def slice_size(s):
     return (s.dst.r - s.src.r + 1) * (s.dst.c - s.src.c + 1)
 
+
 def zc(r, c):
     return If(Or(r < 0, c < 0), 0, TOTAL[ind(r, c)])
 
-def Stoma(s):
-    return zc(s.dst.r, s.dst.c) - zc(s.dst.r, s.src.c - 1) - zc(s.src.r - 1, s.dst.c) + zc(s.src.r - 1, s.src.c - 1)
 
-def Smush(s, Stoma, slice_size):
-    return slice_size - Stoma
+def count_mushrooms(s):
+    sr, sc = s.src.r, s.src.c
+    dr, dc = s.dst.r, s.dst.c
+    return zc(dr, dc) - zc(dr, sc - 1) - zc(sr - 1, dc) + zc(sr - 1, sc - 1)
+
 
 def slice_constraints(s):
-    s_size = Int('Slice{}.size'.format(s.i))
-    s_Stoma = Int('Slice{}.Stoma'.format(s.i))
+    SLICE_SIZE = Int('Slice{}.SIZE'.format(s.i))
+    MUSH_COUNT = Int('Slice{}.MUSH_COUNT'.format(s.i))
     return And(  # slices are in bounds
-               s.src.r >= 0, s.src.c >= 0, s.dst.r < R, s.dst.c < C,
-               # slices are correctly shaped
-               s.src.r <= s.dst.r, s.src.c <= s.dst.c,
-               s_size == slice_size(s),
-               s_Stoma == Stoma(s),
-               L <= Smush(s, s_Stoma, s_size),
-               L <= Stoma(s),
-               # and at most H cells of any kind in total:
-               s_size <= H)
+                s.src.r >= 0, s.src.c >= 0, s.dst.r < R, s.dst.c < C,
+                # slices are correctly shaped
+                s.src.r <= s.dst.r, s.src.c <= s.dst.c,
+                SLICE_SIZE == slice_size(s),
+                MUSH_COUNT == count_mushrooms(s),
+                L <= MUSH_COUNT,
+                L <= SLICE_SIZE - MUSH_COUNT,
+                # and at most H cells of any kind in total:
+                SLICE_SIZE <= H)
 
 
 def cons_nonoverlap(s1, s2):
@@ -74,30 +69,42 @@ def cons_nonoverlap(s1, s2):
 
 
 def create_slices(num):
-    slices = [SL(src = Point(c = Int("Slice{}.src.c".format(i)),
-                             r = Int("Slice{}.src.r".format(i))),
-                 dst = Point(c = Int("Slice{}.dst.c".format(i)),
-                             r = Int("Slice{}.dst.r".format(i))),
-                 i = i)
+    slices = [SL(src=Point(c=Int("Slice{}.src.c".format(i)),
+                           r=Int("Slice{}.src.r".format(i))),
+                 dst=Point(c=Int("Slice{}.dst.c".format(i)),
+                           r=Int("Slice{}.dst.r".format(i))),
+                 i=i)
               for i in range(num)]
-    return slices, [ slice_constraints(s) for s in slices ] + [ cons_nonoverlap(s1, s2) for s1 in slices for s2 in slices if id(s1) != id(s2) ]
+    constraints = [slice_constraints(s) for s in slices]
+    constraints += [cons_nonoverlap(s1, s2) for s1 in slices for s2 in slices if id(s1) != id(s2)]
+    return slices, constraints
 
-SLICES = 3
 
-s = Solver()
-s.add(INIT)
-slices, constraints = create_slices(SLICES)
-s.add(*constraints)
+SLICES = 2
 
-print(s.check())
 
-m = s.model()
+def find_model(constraints):
+    s = Solver()
+    s.add(INIT)
+    s.add(*constraints)
+    print(s.check())
+    return s.model()
 
-for i in range(SLICES):
-    print("Slice: ({}, {}) x ({}, {}) => Stoma = {}, Ssize = {}".format(
-        m.evaluate(slices[i].src.c),
-        m.evaluate(slices[i].src.r),
-        m.evaluate(slices[i].dst.c),
-        m.evaluate(slices[i].dst.r),
-        m.evaluate(Int("Slice{}.Stoma".format(i))),
-        m.evaluate(Int("Slice{}.size".format(i)))))
+
+def main():
+    slices, constraints = create_slices(SLICES)
+    m = find_model(constraints)
+
+    print(R, C, L, H)
+    print(np.array(rows))
+    # print(total_mushrooms)
+    for i in range(SLICES):
+        print("Slice: ({}, {}) x ({}, {}) => MUSH_COUNT = {}, SIZE = {}".format(
+            m.evaluate(slices[i].src.c),
+            m.evaluate(slices[i].src.r),
+            m.evaluate(slices[i].dst.c),
+            m.evaluate(slices[i].dst.r),
+            m.evaluate(Int("Slice{}.MUSH_COUNT".format(i))),
+            m.evaluate(Int("Slice{}.SIZE".format(i)))))
+
+main()
