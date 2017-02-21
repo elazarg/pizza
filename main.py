@@ -28,6 +28,12 @@ INIT = [TOTAL[r][c] == int(total_mushrooms[r, c])
 INIT += [TOTAL[r][-1] == 0 for r in range(R)]
 INIT += [TOTAL[-1][c] == 0 for c in range(C)]
 
+# SIZES = Array('SIZES', z3.IntSort(), z3.ArraySort(z3.IntSort(), IntSort()))
+# INIT += [SIZES[r][c] == r*c
+#          for r in range(R)
+#          for c in range(C)]
+# INIT += [TOTAL[r][-1] == 0 for r in range(R)]
+# INIT += [TOTAL[-1][c] == 0 for c in range(C)]
 
 Point = namedtuple('Point', ('c', 'r', ))
 SL = namedtuple('SL', ('src', 'dst', 'i', ))
@@ -77,7 +83,7 @@ def create_slices(num):
     constraints = [slice_constraints(s) for s in slices]
     constraints += [cons_nonoverlap(s1, s2) for s1 in slices for s2 in slices if id(s1) < id(s2)]
     constraints += [TOTAL_SLICES_SIZE == Sum([VAR_SLICE_SIZE(i) for i in range(num)])]
-    constraints += [TOTAL_SLICES_SIZE <= int((R * C)/num)]
+    constraints += [TOTAL_SLICES_SIZE <= R * C]
     return slices, constraints
 
 
@@ -95,7 +101,7 @@ def main():
     print(R, C, L, H)
     print(np.array(rows))
 
-    SLICES = 3
+    SLICES = 8
 
     slices, constraints = create_slices(SLICES)
     m = optimize(constraints)
