@@ -28,19 +28,21 @@ INIT = [TOTAL[r][c] == int(total_mushrooms[r, c])
 INIT += [TOTAL[r][-1] == 0 for r in range(R)]
 INIT += [TOTAL[-1][c] == 0 for c in range(C)]
 
-# SIZES = Array('SIZES', z3.IntSort(), z3.ArraySort(z3.IntSort(), IntSort()))
-# INIT += [SIZES[r][c] == r*c
-#          for r in range(R)
-#          for c in range(C)]
-# INIT += [TOTAL[r][-1] == 0 for r in range(R)]
-# INIT += [TOTAL[-1][c] == 0 for c in range(C)]
+SIZES = Array('SIZES', z3.IntSort(), z3.ArraySort(z3.IntSort(), IntSort()))
+INIT += [SIZES[r][c] == r*c
+         for r in range(R)
+         for c in range(C)]
+INIT += [SIZES[r][-1] == 0 for r in range(R)]
+INIT += [SIZES[-1][c] == 0 for c in range(C)]
 
 Point = namedtuple('Point', ('c', 'r', ))
 SL = namedtuple('SL', ('src', 'dst', 'i', ))
 
 
 def slice_size(s):
-    return (s.dst.r - s.src.r + 1) * (s.dst.c - s.src.c + 1)
+    sr, sc = s.src.r, s.src.c
+    dr, dc = s.dst.r, s.dst.c
+    return SIZES[dr][dc] - SIZES[dr][sc-1] - SIZES[sr-1][dc] + SIZES[sr-1][sc-1]
 
 
 def count_mushrooms(s):
@@ -101,7 +103,7 @@ def main():
     print(R, C, L, H)
     print(np.array(rows))
 
-    SLICES = 8
+    SLICES = 11
 
     slices, constraints = create_slices(SLICES)
     m = optimize(constraints)
