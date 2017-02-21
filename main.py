@@ -95,7 +95,7 @@ def optimize(constraints, maximize=True):
     s.add(constraints)
     if maximize:
         s.maximize(TOTAL_SLICES_SIZE)
-    print(s.check())
+    s.check()
     return s.model()
 
 
@@ -103,12 +103,15 @@ def main():
     print(R, C, L, H)
     print(np.array(rows))
 
-    SLICES = 11
+    SLICES = 9
 
     slices, constraints = create_slices(SLICES)
     m = optimize(constraints)
 
     # print(total_mushrooms)
+    if not m:
+        print('UNSAT')
+        return
     for i in range(SLICES):
         print("Slice: ({}, {}) x ({}, {}) => MUSH_COUNT = {}, SIZE = {}".format(
             m.evaluate(slices[i].src.c),
