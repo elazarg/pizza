@@ -33,6 +33,33 @@ print(S)
 print(endpoints)
 print(requests)
 
+has_video = [[Bool('has_video_{}_{}'.format(i, j)) for j in range(C)]
+             for i in range(V)]
+
+
+class Constraints:
+    CAPACITY = [Sum([If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
+                for j in range(C)]
+
+    # def min_r(r):
+    #     m = 0
+    #     for j in range(C):
+    #         If(endpoints[has_video[r.v][j], r) for j in range(C))
+
+    SERVE = Sum([min_r(r) for r in requests])
+
+
+def solve(constraints):
+    s = Solver()
+    s.add(constraints)
+    s.check()
+    return s.model()
+
+
+
+
+print(solve(Constraints.CAPACITY))
+
 
 exit()
 
