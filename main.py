@@ -44,15 +44,22 @@ def find_min(xs):
     return m
 
 
+def find_max(xs):
+    m = xs[0]
+    for x in xs:
+        m = If(m > x, m, x)
+    return m
+
+
 class Constraints:
     CAPACITY = [Sum([If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
                 for j in range(C)]
 
-    def min_r(r):
-        return find_min([If(has_video[r.v][j], endpoints[r.e].L[j], endpoints[r.e].L_D)
+    def L(r):
+        return find_max([If(has_video[r.v][j], endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
                         for j in range(C) if j in endpoints[r.e].L])
 
-    SERVE = Sum([min_r(r) for r in requests])
+    SERVE = Sum([L(r)*r.n for r in requests])
 
 
 def solve(constraints):
