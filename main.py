@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import numpy as np
-from collections import namedtuple
+from collections import namedtuple, defaultdict 
 import z3
 
 Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
+
+FILENAME = 'me_at_the_zoo.in'
 
 
 def read_line_ints(line):
@@ -26,7 +28,7 @@ def read_file(filename):
         requests = [Req(*read_line_ints(next(f))) for _ in range(R)]
     return (V, E, R, C, X), S, endpoints, requests
 
-(V, E, R, C, X), S, endpoints, requests = read_file('me_at_the_zoo.in')
+(V, E, R, C, X), S, endpoints, requests = read_file(FILENAME)
 print((V, E, R, C, X))
 print(S)
 print(endpoints)
@@ -76,4 +78,13 @@ m = solve()
 if not m:
     print('UNSAT')
 else:
-    print('SERVE', m.evaluate(SERVE))
+    d = defaultdict(list)
+    for i in range(V):
+        for j in range(C):
+            if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
+                d[j].append(i)
+    with open(FILENAME + '.out', 'w') as f:
+        print(len(d), file=f)
+        for k in d:
+            print("{} {}".format(str(k), " ".join(map(str, d[k]))), file=f)
+        # print('SERVE', m.evaluate(SERVE))
