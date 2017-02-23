@@ -56,29 +56,29 @@ CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
             for j in range(C)]
 
 
-def solve(maximize=False, bound=1):
+def solve(maximize=False, bound=False):
     s = z3.Solver()
     s.add(CAPACITY)
     s.add(SERVE_SUM)
     if maximize:
         s.maximize(SERVE)
     if bound:
-        pass
-        #s.add(SERVE > 20615576)
+        s.add(SERVE > 7021826) # 20615576)
     s.check()
     return s.model()
 
-m = solve()
+m = solve(False, True)
 
 if not m:
     print('UNSAT')
 else:
     d = defaultdict(list)
-    for i in range(V):
-        for j in range(C):
-            if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
-                d[j].append(i)
-    print(len(d))
-    for k in d:
-        print("{} {}".format(str(k), " ".join(map(str, d[k]))))
-    # print('SERVE', m.evaluate(SERVE))
+    with open("output_me_at_the_zoo_{}.txt".format(m.evaluate(SERVE)), "wb") as out:
+        for i in range(V):
+            for j in range(C):
+                if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
+                    d[j].append(i)
+        out.write(str(len(d)))
+        for k in d:
+            out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
+    # print('SERVE', )
