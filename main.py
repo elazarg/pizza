@@ -47,23 +47,35 @@ def L(r):
     return find_max([z3.If(has_video[r.v][j], endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
                     for j in range(C) if j in endpoints[r.e].L])
 
-SERVE = z3.Sum([L(r)*r.n for r in requests]) > 9000000
+
+SERVE = z3.Int('SERVE')
+SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in requests])
+BIG_SERVE = SERVE > 20615576
 
 CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
             for j in range(C)]
 
 
-def solve():
-    s = z3.Solver()
+def solve(maximize=True, bound=0):
+    s = z3.Optimize()
     s.add(CAPACITY)
-    s.add(SERVE)
+    s.add(SERVE_SUM)
+    if maximize:
+        s.maximize(SERVE)
+    if bound:
+        s.add(SERVE > 20615576)
     s.check()
     return s.model()
 
-print(solve())
+m = solve()
 
+if not m:
+    print('UNSAT')
+else:
+    print('SERVE', m.evaluate(SERVE))
 
 exit()
+
 
 def optimize(constraints, maximize=True):
     s = Optimize()
