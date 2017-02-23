@@ -6,7 +6,9 @@ import z3
 Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
-FILENAME = 'me_at_the_zoo.in'
+FILENAME = 'videos_worth_spreading.in'
+RES = {'me_at_the_zoo.in': 20621523,
+       'videos_worth_spreading.in': 0}
 
 
 def read_line_ints(line):
@@ -56,7 +58,7 @@ def L(r):
 
 SERVE = z3.Int('SERVE')
 SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in requests]) # list(sorted(requests, key=request_key))[:NUMREQ]])
-BIG_SERVE = SERVE > 20621523
+BIG_SERVE = SERVE > RES[FILENAME]
 
 CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
             for j in range(C)]
@@ -87,4 +89,4 @@ else:
         print(len(d), file=f)
         for k in d:
             print("{} {}".format(str(k), " ".join(map(str, d[k]))), file=f)
-        # print('SERVE', m.evaluate(SERVE))
+    print('SERVE', m.evaluate(SERVE))
