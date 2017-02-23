@@ -9,7 +9,8 @@ Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
 FILENAME = 'me_at_the_zoo.in'
 RES = {'me_at_the_zoo.in': 23149946,
-       'videos_worth_spreading.in': 0}
+       'videos_worth_spreading.in': 100000,
+       'trending_today.in': 100000}
 
 
 def read_line_ints(line):
@@ -57,6 +58,8 @@ def L(r):
     return find_max([z3.If(has_video[r.v][j], endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
                     for j in range(C) if j in endpoints[r.e].L])
 
+print('GENERATE CONTRAINTS')
+
 SERVE = z3.Int('SERVE')
 SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in islice(sorted(requests, key=request_key), NUMREQ)])
 BIG_SERVE = SERVE > RES[FILENAME]
@@ -89,6 +92,7 @@ else:
                 if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
                     d[j].append(i)
         out.write(str(len(d)))
+        out.write('\n')
         for k in d:
             out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
-
+            out.write('\n')
