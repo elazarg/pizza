@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import numpy as np
-from collections import namedtuple, defaultdict 
+from collections import namedtuple, defaultdict
+from itertools import islice
 import z3
 
 Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
-FILENAME = 'videos_worth_spreading.in'
-RES = {'me_at_the_zoo.in': 20621523,
+FILENAME = 'me_at_the_zoo.in'
+RES = {'me_at_the_zoo.in': 23149946,
        'videos_worth_spreading.in': 0}
 
 
@@ -31,17 +32,17 @@ def read_file(filename):
     return (V, E, R, C, X), S, endpoints, requests
 
 (V, E, R, C, X), S, endpoints, requests = read_file(FILENAME)
-print((V, E, R, C, X))
-print(S)
-print(endpoints)
-print(requests)
+# print((V, E, R, C, X))
+# print(S)
+# print(endpoints)
+# print(requests)
 
 has_video = [[z3.Bool('has_video_{}_{}'.format(i, j)) for j in range(C)]
              for i in range(V)]
 
 
 def find_max(xs):
-    m = xs[0]
+    m = 0
     for x in xs:
         m = z3.If(m > x, m, x)
     return m
@@ -49,7 +50,7 @@ def find_max(xs):
 
 def request_key(r):
     return S[r.v] / r.n
-NUMREQ = 80
+NUMREQ = 100
 
 
 def L(r):
@@ -57,7 +58,7 @@ def L(r):
                     for j in range(C) if j in endpoints[r.e].L])
 
 SERVE = z3.Int('SERVE')
-SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in requests]) # list(sorted(requests, key=request_key))[:NUMREQ]])
+SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in islice(sorted(requests, key=request_key), NUMREQ)])
 BIG_SERVE = SERVE > RES[FILENAME]
 
 CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
@@ -75,18 +76,20 @@ def solve(maximize=False, bound=True):
     s.check()
     return s.model()
 
-m = solve()
+print('solving...')
+m = solve(False, True)
 
 if not m:
     print('UNSAT')
 else:
     d = defaultdict(list)
-    for i in range(V):
-        for j in range(C):
-            if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
-                d[j].append(i)
-    with open(FILENAME + '.out', 'w') as f:
-        print(len(d), file=f)
+    with open("{}.{}.txt".format(FILENAME, m.evaluate(SERVE)), "w") as out:
+        for i in range(V):
+            for j in range(C):
+                if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
+                    d[j].append(i)
+        out.write(str(len(d)))
         for k in d:
-            print("{} {}".format(str(k), " ".join(map(str, d[k]))), file=f)
-    print('SERVE', m.evaluate(SERVE))
+            print("{} {}".format(str(k), " ".join(map(str, d[k]))), file=out)
+            out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
+
