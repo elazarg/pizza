@@ -4,37 +4,22 @@ from collections import namedtuple
 from z3 import *
 import z3
 
-Req = namedtuple('Req', ('v', 'e', 'n'))
-Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'latencies'))
 
-
-def read_line_ints(line):
-    return [int(x) for x in line.split(' ')]
-
-
-def read_endpoint(f):
-    L_D, K = read_line_ints(next(f))  # latency to data server, number of cache servers
-    latencies = {int(c): int(L_c) for c, L_c in (next(f).split(' ') for _ in range(K))}
-    return Endpoint(L_D, K, latencies)
+Point = namedtuple('Point', ('c', 'r', ))
+SL = namedtuple('SL', ('src', 'dst', 'i', ))
 
 
 def read_file(filename):
     with open(filename) as f:
-        V, E, R, C, X = [int(x) for x in next(f).split(' ')]
-        S = read_line_ints(next(f))  # The size of each video in MB
-        assert len(S) == V
-        endpoints = [read_endpoint(f) for i in range(E)]
-        requests = [Req(*read_line_ints(next(f))) for _ in range(R)]
-    return (V, E, R, C, X), S, endpoints, requests
+        txt = [line.rstrip('\n') for line in f]
+    R, C, L, H = [int(x) for x in txt[0].split(' ')]
+    rows = [[int(c == 'M') for c in row]
+            for row in txt[1:]]
+    assert len(rows) == R
+    assert all(len(row) == C for row in rows)
+    assert 0 <= L <= H
+    return R, C, L, H, rows
 
-(V, E, R, C, X), S, endpoints, requests = read_file('me_at_the_zoo.in')
-print((V, E, R, C, X))
-print(S)
-print(endpoints)
-print(requests)
-
-
-exit()
 
 R, C, L, H, rows = read_file('example.in')
 
