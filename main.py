@@ -90,6 +90,5 @@ else:
                     d[j].append(i)
         out.write(str(len(d)))
         for k in d:
-            print("{} {}".format(str(k), " ".join(map(str, d[k]))), file=out)
             out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
 
