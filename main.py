@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
-from collections import namedtuple
+from collections import namedtuple, defaultdict 
 import z3
 
 Req = namedtuple('Req', ('v', 'e', 'n'))
@@ -56,14 +56,15 @@ CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
             for j in range(C)]
 
 
-def solve(maximize=True, bound=0):
-    s = z3.Optimize()
+def solve(maximize=False, bound=1):
+    s = z3.Solver()
     s.add(CAPACITY)
     s.add(SERVE_SUM)
     if maximize:
         s.maximize(SERVE)
     if bound:
-        s.add(SERVE > 20615576)
+        pass
+        #s.add(SERVE > 20615576)
     s.check()
     return s.model()
 
@@ -72,4 +73,12 @@ m = solve()
 if not m:
     print('UNSAT')
 else:
-    print('SERVE', m.evaluate(SERVE))
+    d = defaultdict(list)
+    for i in range(V):
+        for j in range(C):
+            if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
+                d[j].append(i)
+    print(len(d))
+    for k in d:
+        print("{} {}".format(str(k), " ".join(map(str, d[k]))))
+    # print('SERVE', m.evaluate(SERVE))
