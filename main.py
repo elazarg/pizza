@@ -6,6 +6,8 @@ import z3
 Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
+FILENAME = 'me_at_the_zoo.in'
+
 
 def read_line_ints(line):
     return [int(x) for x in line.strip().split()]
@@ -26,7 +28,7 @@ def read_file(filename):
         requests = [Req(*read_line_ints(next(f))) for _ in range(R)]
     return (V, E, R, C, X), S, endpoints, requests
 
-(V, E, R, C, X), S, endpoints, requests = read_file('me_at_the_zoo.in')
+(V, E, R, C, X), S, endpoints, requests = read_file(FILENAME)
 print((V, E, R, C, X))
 print(S)
 print(endpoints)
@@ -43,27 +45,31 @@ def find_max(xs):
     return m
 
 
+def request_key(r):
+    return S[r.v] / r.n
+NUMREQ = 80
+
+
 def L(r):
     return find_max([z3.If(has_video[r.v][j], endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
                     for j in range(C) if j in endpoints[r.e].L])
 
-
 SERVE = z3.Int('SERVE')
-SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in requests])
-BIG_SERVE = SERVE > 20615576
+SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in requests]) # list(sorted(requests, key=request_key))[:NUMREQ]])
+BIG_SERVE = SERVE > 20621523
 
 CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
             for j in range(C)]
 
 
-def solve(maximize=False, bound=False):
-    s = z3.Solver()
+def solve(maximize=False, bound=True):
+    s = z3.Optimize()
     s.add(CAPACITY)
     s.add(SERVE_SUM)
     if maximize:
         s.maximize(SERVE)
     if bound:
-        s.add(SERVE > 7021826) # 20615576)
+        s.add(BIG_SERVE)
     s.check()
     return s.model()
 
@@ -73,7 +79,7 @@ if not m:
     print('UNSAT')
 else:
     d = defaultdict(list)
-    with open("output_me_at_the_zoo_{}.txt".format(m.evaluate(SERVE)), "wb") as out:
+    with open("{}.{}.txt".format(FILENAME, m.evaluate(SERVE)), "wb") as out:
         for i in range(V):
             for j in range(C):
                 if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
@@ -81,4 +87,3 @@ else:
         out.write(str(len(d)))
         for k in d:
             out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
-    # print('SERVE', )
