@@ -8,7 +8,7 @@ Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
 FILENAME = 'me_at_the_zoo.in'
-RES = {'me_at_the_zoo.in': 23149946,
+RES = {'me_at_the_zoo.in': 25070839,
        'videos_worth_spreading.in': 100000,
        'trending_today.in': 100000}
 
@@ -38,9 +38,6 @@ def read_file(filename):
 # print(endpoints)
 # print(requests)
 
-has_video = [[z3.Bool('has_video_{}_{}'.format(i, j)) for j in range(C)]
-             for i in range(V)]
-
 
 def find_max(xs):
     m = 0
@@ -53,29 +50,30 @@ def request_key(r):
     return S[r.v] / r.n
 NUMREQ = 100
 
-
-def L(r):
-    return find_max([z3.If(has_video[r.v][j], endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
-                    for j in endpoints[r.e].L])
-
 print('GENERATE CONSTRAINTS')
 
+has_video = z3.Function('has_video', z3.IntSort(), z3.IntSort(), z3.BoolSort())
+
 SERVE = z3.Int('SERVE')
-SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in islice(sorted(requests, key=request_key), NUMREQ)])
+SERVE_SUM = SERVE == z3.Sum([find_max([z3.If(has_video(r.v, j), endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
+                                       for j in endpoints[r.e].L]
+                                      )*r.n
+                             for r in requests])  # islice(sorted(requests, key=request_key), NUMREQ)])
 BIG_SERVE = SERVE > RES[FILENAME]
 
-CAPACITY = [z3.Sum([z3.If(has_video[i][j], S[i], 0) for i in range(V)]) <= X
+CAPACITY = [z3.Sum([z3.If(has_video(i, j), S[i], 0) for i in range(V)]) <= X
             for j in range(C)]
 
 
 def solve(maximize=False, bound=True):
-    s = z3.Optimize()
+    s = z3.Solver()
     s.add(CAPACITY)
     s.add(SERVE_SUM)
     if maximize:
         s.maximize(SERVE)
     if bound:
         s.add(BIG_SERVE)
+    # sprint(s.sexpr())
     s.check()
     return s.model()
 
@@ -89,7 +87,7 @@ else:
     with open("{}.{}.txt".format(FILENAME, m.evaluate(SERVE)), "w") as out:
         for i in range(V):
             for j in range(C):
-                if m.evaluate(z3.Bool('has_video_{}_{}'.format(i, j))):
+                if m.evaluate(has_video(i, j)):
                     d[j].append(i)
         out.write(str(len(d)))
         out.write('\n')
