@@ -56,9 +56,9 @@ NUMREQ = 100
 
 def L(r):
     return find_max([z3.If(has_video[r.v][j], endpoints[r.e].L_D-endpoints[r.e].L[j], 0)
-                    for j in range(C) if j in endpoints[r.e].L])
+                    for j in endpoints[r.e].L])
 
-print('GENERATE CONTRAINTS')
+print('GENERATE CONSTRAINTS')
 
 SERVE = z3.Int('SERVE')
 SERVE_SUM = SERVE == z3.Sum([L(r)*r.n for r in islice(sorted(requests, key=request_key), NUMREQ)])
