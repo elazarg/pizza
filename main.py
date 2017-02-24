@@ -6,9 +6,11 @@ import z3
 Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
-FILENAME = 'me_at_the_zoo.in'
-RES = {'me_at_the_zoo.in': 25090000,  # 25096812,
-       'videos_worth_spreading.in': 100000,
+BASENAME = 'trending_today'
+FILENAME = BASENAME + '.in'
+RES = {'me_at_the_zoo.in': 0,
+       'videos_worth_spreading.in': 0,
+       'kittens.in': 0,
        'trending_today.in': 100000}
 
 
@@ -34,9 +36,32 @@ def read_file(filename):
     for line in txt[1 + 1 + sum(e.K + 1 for e in endpoints):]:
         v, e, n = read_line_ints(line)
         requests[(v, e)] += n
+    print('requests before:', len(requests))
+    requests = Counter(dict(requests.most_common(1000)))
+    print('requests after:', len(requests))
     return (V, E, R, C, X), S, endpoints, requests
 
+
+def make_dict(m):
+    d = defaultdict(list)
+    for j in range(C):
+        for i in relevant[j]:
+            if m.evaluate(has_video(i, j)):
+                d[j].append(i)
+    return d
+
+
+def write_file(d, result):
+    with open("{}/{}.txt".format(BASENAME, result), "w") as out:
+        out.write(str(len(d)))
+        out.write('\n')
+        for k in d:
+            out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
+            out.write('\n')
+
+print('Reading file...', end=' ')
 (V, E, R, C, X), S, endpoints, requests = read_file(FILENAME)
+print('done.')
 
 relevant = defaultdict(set)
 for (v, e) in requests:
@@ -61,53 +86,66 @@ def request_key(r):
     return S[r.v] / r.n
 NUMREQ = 100
 
-print('GENERATE CONSTRAINTS')
+print('Generate constraints...')
 
 has_video = z3.Function('has_video', z3.IntSort(), z3.IntSort(), z3.BoolSort())
 
 SERVE = z3.Int('SERVE')
 CAPVAR = [z3.Int('CAP_{}'.format(j)) for j in range(C)]
 
+print('SERVE_SUM')
 SERVE_SUM = SERVE == z3.Sum([find_max([z3.If(has_video(v, j), endpoints[e].L_D-endpoints[e].L[j], 0)
                                        for j in endpoints[e].L]
                                       )*n
-                             for (v, e), n in requests.items()])  # islice(sorted(requests, key=request_key), NUMREQ)])
-BIG_SERVE = SERVE > RES[FILENAME]
+                             for (v, e), n in requests.items()])
 
-
+print('CAPVAR_SUM')
 CAPVAR_SUM = [CAPVAR[j] == z3.Sum([z3.If(has_video(i, j), S[i], 0) for i in relevant[j]]) for j in range(C)]
+print('CAPACITY')
 CAPACITY = [CAPVAR[j] <= X for j in range(C)]
+print('CAP_FULL')
 CAP_FULL = [z3.Or(has_video(i, j), CAPVAR[j] > X - S[i]) for j in range(C) for i in relevant[j]]
 
 
-def solve(maximize=False, bound=True):
+def prepare_solver():
     s = z3.Solver()
     s.add(CAPVAR_SUM)
     s.add(CAPACITY)
     s.add(CAP_FULL)
     s.add(SERVE_SUM)
-    if maximize:
-        s.maximize(SERVE)
-    if bound:
-        s.add(BIG_SERVE)
-    # sprint(s.sexpr())
+    return s
+
+
+def maximize(s):
+    s.maximize(SERVE)
     s.check()
     return s.model()
 
-print('solving...')
-m = solve(False, True)
 
-if not m:
-    print('UNSAT')
-else:
-    d = defaultdict(list)
-    with open("{}.{}.txt".format(FILENAME, m.evaluate(SERVE)), "w") as out:
-        for j in range(C):
-            for i in relevant[j]:
-                if m.evaluate(has_video(i, j)):
-                    d[j].append(i)
-        out.write(str(len(d)))
-        out.write('\n')
-        for k in d:
-            out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
-            out.write('\n')
+def solve(s, bound=0):
+    s.add(SERVE > bound)
+    s.check()
+    try:
+        return s.model()
+    except e:
+        return None
+
+
+result = RES[FILENAME]
+print('preparing...')
+s = prepare_solver()
+
+
+while True:
+    target = int(result*1.1)
+    print('solving round for {}...'.format(target))
+    m = solve(s, target)
+
+    if not m:
+        print('UNSAT')
+        break
+    else:
+        result = int(str(m.evaluate(SERVE)))
+        print('found {}...'.format(result))
+        d = make_dict(m)
+        write_file(d, result)
