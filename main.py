@@ -2,7 +2,6 @@
 from collections import namedtuple, defaultdict, Counter
 import z3
 
-Req = namedtuple('Req', ('v', 'e', 'n'))
 Endpoint = namedtuple('Endpoint', ('L_D', 'K', 'L'))
 
 
@@ -23,38 +22,29 @@ def read_file(filename):
     V, E, R, C, X = read_line_ints(next(f))
     S = read_line_ints(next(f))  # The size of each video in MB
     assert len(S) == V
-    endpoints = [read_endpoint(f) for i in range(E)]
+    endpoints = [read_endpoint(f) for _ in range(E)]
     requests = Counter()
     for line in txt[1 + 1 + sum(e.K + 1 for e in endpoints):]:
         v, e, n = read_line_ints(line)
         requests[(v, e)] += n
-    # print('requests before:', len(requests))
-    # requests = Counter(dict(requests.most_common(1000)))
-    # print('requests after:', len(requests))
     relevant = defaultdict(set)
     for (v, e) in requests:
         for c, l in endpoints[e].L.items():
             relevant[c].add(v)
 
-    return (V, E, R, C, X), S, endpoints, requests, relevant
+    return C, X, S, endpoints, requests, relevant
 
 
 def make_dict(m, C, relevant):
-    d = defaultdict(list)
-    for j in range(C):
-        for i in relevant[j]:
-            if m.evaluate(has_video(i, j)):
-                d[j].append(i)
-    return d
+    return {j: [i for i in relevant[j] if m.evaluate(has_video(i, j))]
+            for j in range(C)}
 
 
-def write_file(basename, d, result):
-    with open("{}/{}.txt".format(basename, result), "w") as out:
-        out.write(str(len(d)))
-        out.write('\n')
+def write_file(filename, d):
+    with open(filename, "w") as out:
+        print(len(d), file=out)
         for k in d:
-            out.write("{} {}".format(str(k), " ".join(map(str, d[k]))))
-            out.write('\n')
+            print(k, *d[k], file=out)
 
 
 def find_max(xs):
@@ -88,60 +78,33 @@ def generate_constraints(C, X, S, endpoints, requests, relevant):
     return [CAPVAR_SUM, CAPACITY, CAP_FULL, SERVE_SUM]
 
 
-def prepare_solver(constraints, Solver=z3.Solver):
-    s = Solver()
+def iterative(basename, maximize=False):
+    C, X, S, endpoints, requests, relevant = read_file(basename + '.in')
+    result = 25124934
+    print('preparing...')
+    constraints = generate_constraints(C, X, S, endpoints, requests, relevant)
+    s = z3.Optimize() if maximize else z3.Solver()
     for c in constraints:
         s.add(c)
-    return s
-
-
-def maximize(constraints):
-    s = prepare_solver(constraints, z3.Optimize)
-    s.maximize(SERVE)
-    s.check()
-    return s.model()
-
-
-def solve(s, bound=0):
-    s.add(SERVE > bound)
-    s.check()
-    try:
-        return s.model()
-    except Exception:
-        return None
-
-
-def iterative(BASENAME):
-    FILENAME = BASENAME + '.in'
-    (_, _, _, C, X), S, endpoints, requests, relevant = read_file(FILENAME)
-    result = 0
-    print('preparing...')
-    s = prepare_solver(generate_constraints(C, X, S, endpoints, requests, relevant))
+    if maximize:
+        s.maximize(SERVE)
     while True:
-        target = int(result + 1)
-        print('solving round for {}...'.format(target))
-        m = solve(s, target)
-
-        if not m:
+        target = int(result)
+        print('solving round for', target)
+        s.add(SERVE > target)
+        s.check()
+        try:
+            m = s.model()
+        except z3.Z3Exception:
             print('UNSAT')
             break
-        else:
-            result = int(str(m.evaluate(SERVE)))
-            print('found {}...'.format(result))
-            d = make_dict(m, C, relevant)
-            write_file(BASENAME, d, result)
+        result = int(str(m.evaluate(SERVE)))
+        print('found', result)
+        d = make_dict(m, C, relevant)
+        write_file("{}/{}.txt".format(basename, result), d)
+        if maximize:
+            break
 
 
-def optimize(BASENAME):
-    FILENAME = BASENAME + '.in'
-    (_, _, _, C, X), S, endpoints, requests, relevant = read_file(FILENAME)
-    print('preparing...')
-    m = maximize(generate_constraints(C, X, S, endpoints, requests, relevant))
-    result = int(str(m.evaluate(SERVE)))
-    print('found {}...'.format(result))
-    d = make_dict(m, C, relevant)
-    write_file(BASENAME, d, result)
-
-
-optimize('me_at_the_zoo')
+iterative('me_at_the_zoo')
 iterative('trending_today')
