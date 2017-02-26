@@ -28,19 +28,24 @@ def generate_constraints(capacity, sizes, endpoints, caches):
     yield SERVE == z3.Sum([find_max(e.L.items(), v, e.L_D) * ratio
                            for e in progressbar(endpoints)
                            for v, ratio in e.requests.most_common(100)])
-    print('CAPACITY')
-    yield from (z3.Sum([z3.If(has_video(v, c), sizes[v], 0) for v in videos]) == capacity
-                for c, videos in progressbar(caches.items()))
-    VIDEO = z3.Int('VIDEO')
-    print('IMP')
-    yield from (z3.ForAll([VIDEO],
-                     z3.Implies(has_video(VIDEO, c), z3.Or([VIDEO == v for v in videos])))
-                for c, videos in caches.items())
+    for c, videos in caches.items():
+        def latency_gain(v):
+            return sum(e.requests[v] * (e.L[c1] - e.L[c]) // sizes[v]
+                       for e in endpoints
+                       for c1 in e.L
+                       if c in e.L and c1 != c)
+        total = 0
+        for v in sorted(videos, key=latency_gain, reverse=True):
+            if total + v == capacity:
+                break
+            if total + v <= capacity:
+                total += v
+                yield has_video(v, c)
 
 
 def iterative(basename, maximize=False):
     capacity, sizes, endpoints, caches = io.read_file(basename + '.in')
-    result = 25568559
+    result = 29585985  # 25568559
     print('preparing...')
     s = z3.Optimize() if maximize else z3.Solver()
     for c in generate_constraints(capacity, sizes, endpoints, caches):
