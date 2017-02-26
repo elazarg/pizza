@@ -30,20 +30,13 @@ def read_file(filename):
     endpoints = [read_endpoint(f) for _ in range(E)]
 
     start = 1 + 1 + sum(e.K + 1 for e in endpoints)
+    caches = defaultdict(set)
     for line in txt[start:]:
         v, e, n = read_line_ints(line)
-        endpoints[e].requests[v] += n
-    # for e in endpoints:
-    #     for v, n in list(e.requests.items()):
-    #         e.requests[v] = (n // sizes[v]**2) + 1
-    #         print(e.requests[v])
-
-    caches = defaultdict(set)
-    for e in endpoints:
-        for v in e.requests:
-            for c, l in e.L.items():
-                caches[c].add(v)
-
+        e = endpoints[e]
+        e.requests[v] += n
+        for c in e.L:
+            caches[c].add(v)
     return capacity, sizes, endpoints, caches
 
 
