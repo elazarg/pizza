@@ -32,7 +32,7 @@ def generate_constraints(capacity, sizes, endpoints, caches):
     return d
 
 
-def greedy(basename, maximize=False, result=0):
+def greedy(basename):
     capacity, sizes, endpoints, caches = io.read_file(basename + '.in')
     print('preparing...')
     d = generate_constraints(capacity, sizes, endpoints, caches)
